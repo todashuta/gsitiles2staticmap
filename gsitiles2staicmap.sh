@@ -1,16 +1,27 @@
 #!/bin/sh
 
-if [ $# -ne 5 ]; then
-	echo "実行するには5個の引数が必要です" 1>&2
+if [ ! $# -gt 4 ]; then
+	echo "実行するには最低5個の引数が必要です" 1>&2
+	echo "Usage:" 1>&2
+	echo "$0 ZoomLevel TopLeftX TopLeftY BottomRightX BottomRightY [Tile Type]" 1>&2
 	exit 1
 fi
 
-tiletype="seamlessphoto"
-src_ext=".jpg"
-#tiletype="std"
-#src_ext=".png"
+urls='
+seamlessphoto	https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${zoomlevel}/${x}/${y}.jpg
+std	https://cyberjapandata.gsi.go.jp/xyz/std/${zoomlevel}/${x}/${y}.png
+'
 
-urlfmt="https://cyberjapandata.gsi.go.jp/xyz/${tiletype}/%s/%s/%s${src_ext}"
+tiletype=$6
+[ -z "$tiletype" ] && tiletype=seamlessphoto || :
+
+res=$(echo "$urls" | grep -v '^$' | grep "^$tiletype\s")
+if [ -z "$res" ]; then
+	echo "該当するものがありません: $tiletype" 1>&2
+	exit 1
+fi
+url=$(echo "$res" | awk '{print $2}')
+src_ext=".${url##*.}"  # 拡張子
 
 cachedir="./_cache/$tiletype"
 mkdir -p "$cachedir" || exit 1
@@ -29,8 +40,8 @@ for y in $(seq $topleft_y $bottomright_y); do
 		echo "$out" >> "$now/tiles.txt"
 
 		if [ ! -f "$out" ]; then
-			url=$(printf "$urlfmt" "$zoomlevel" "$x" "$y")
-			wget "$url" -O "$out"
+			u=$(eval echo "$url")
+			wget "$u" -O "$out"
 		fi
 	done
 done
